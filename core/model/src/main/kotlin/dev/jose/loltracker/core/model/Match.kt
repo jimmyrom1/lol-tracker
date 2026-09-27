@@ -23,6 +23,8 @@ data class Match(
     val duration: Duration,
     val playedAt: Instant,
     val notes: String = "",
+    /** Id de la partida en la API de Riot (p. ej. "EUW1_7123456789") si se importó; null si se apuntó a mano. */
+    val riotMatchId: String? = null,
 ) {
     /** KDA clásico: (K + A) / D. Sin muertes se divide entre 1 ("perfect KDA"). */
     val kda: Double get() = (kills + assists).toDouble() / deaths.coerceAtLeast(1)

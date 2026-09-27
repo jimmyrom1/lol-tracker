@@ -11,7 +11,10 @@ import dev.jose.loltracker.core.model.Role
 import java.time.Duration
 import java.time.Instant
 
-@Entity(tableName = "matches", indices = [Index("played_at"), Index("champion_id")])
+@Entity(
+    tableName = "matches",
+    indices = [Index("played_at"), Index("champion_id"), Index(value = ["riot_match_id"], unique = true)],
+)
 data class MatchEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @androidx.room.ColumnInfo(name = "champion_id") val championId: String,
@@ -26,18 +29,20 @@ data class MatchEntity(
     @androidx.room.ColumnInfo(name = "duration_seconds") val durationSeconds: Long,
     @androidx.room.ColumnInfo(name = "played_at") val playedAt: Instant,
     val notes: String,
+    // Único: es lo que impide importar dos veces la misma partida (SQLite permite varios NULL).
+    @androidx.room.ColumnInfo(name = "riot_match_id") val riotMatchId: String? = null,
 )
 
 fun MatchEntity.toModel() = Match(
     id = id, championId = championId, championName = championName, role = role, queue = queue,
     result = result, kills = kills, deaths = deaths, assists = assists, creepScore = creepScore,
-    duration = Duration.ofSeconds(durationSeconds), playedAt = playedAt, notes = notes,
+    duration = Duration.ofSeconds(durationSeconds), playedAt = playedAt, notes = notes, riotMatchId = riotMatchId,
 )
 
 fun Match.toEntity() = MatchEntity(
     id = id, championId = championId, championName = championName, role = role, queue = queue,
     result = result, kills = kills, deaths = deaths, assists = assists, creepScore = creepScore,
-    durationSeconds = duration.seconds, playedAt = playedAt, notes = notes,
+    durationSeconds = duration.seconds, playedAt = playedAt, notes = notes, riotMatchId = riotMatchId,
 )
 
 /** Caché local de los campeones de Data Dragon, para que la app funcione sin conexión. */

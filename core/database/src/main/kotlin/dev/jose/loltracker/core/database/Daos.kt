@@ -1,6 +1,8 @@
 package dev.jose.loltracker.core.database
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
@@ -20,6 +22,14 @@ interface MatchDao {
 
     @Query("DELETE FROM matches WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /** De los ids de Riot recibidos, cuáles ya están guardados (para no volver a descargarlos). */
+    @Query("SELECT riot_match_id FROM matches WHERE riot_match_id IN (:riotMatchIds)")
+    suspend fun existingRiotMatchIds(riotMatchIds: List<String>): List<String>
+
+    /** IGNORE: si dos importaciones se solapan, el índice único descarta la repetida sin fallar. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(matches: List<MatchEntity>): List<Long>
 }
 
 @Dao

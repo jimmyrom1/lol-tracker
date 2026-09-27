@@ -138,6 +138,23 @@ class MatchEditViewModelTest {
     }
 
     @Test
+    fun editingAnImportedMatchKeepsItsRiotIdAndExactDuration() = runTest {
+        val imported = TestData.match(kills = 3).copy(riotMatchId = "EUW1_7000000001", duration = Duration.ofSeconds(1834))
+        val id = matches.saveMatch(imported)
+        val vm = viewModel(id)
+
+        vm.events.test {
+            vm.onNotesChange("Buen early")
+            vm.save()
+            assertEquals(MatchEditEvent.Saved, awaitItem())
+        }
+        val saved = matches.current.single()
+        assertEquals("EUW1_7000000001", saved.riotMatchId)
+        assertEquals(Duration.ofSeconds(1834), saved.duration)
+        assertEquals("Buen early", saved.notes)
+    }
+
+    @Test
     fun missingMatchEmitsNotFound() = runTest {
         val vm = viewModel(matchId = 99)
         vm.events.test { assertEquals(MatchEditEvent.NotFound, awaitItem()) }

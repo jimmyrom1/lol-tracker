@@ -34,6 +34,11 @@ object NetworkModule {
     @Singleton
     fun dataDragonApi(client: OkHttpClient, @Named("dataDragonBaseUrl") baseUrl: String): DataDragonApi =
         createDataDragonApi(client, baseUrl)
+
+    @Provides
+    @Singleton
+    fun riotApi(client: OkHttpClient, keys: RiotApiKeyProvider): RiotApi =
+        createRiotApi(client, RIOT_EUROPE_BASE_URL, keys)
 }
 
 /** Fuera del módulo de Hilt para poder usarlo en los tests contra un MockWebServer. */

@@ -1,6 +1,7 @@
 package dev.jose.loltracker.core.database
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -14,7 +15,14 @@ import dagger.hilt.components.SingletonComponent
 import java.time.Instant
 import javax.inject.Singleton
 
-@Database(entities = [MatchEntity::class, ChampionEntity::class], version = 1, exportSchema = true)
+@Database(
+    entities = [MatchEntity::class, ChampionEntity::class],
+    version = 2,
+    exportSchema = true,
+    // v2: columna riot_match_id para las partidas importadas. Room genera la migración a partir de
+    // los esquemas exportados en schemas/; MigrationTest comprueba que no se pierde ningún dato.
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+)
 @TypeConverters(Converters::class)
 abstract class LolDatabase : RoomDatabase() {
     abstract fun matchDao(): MatchDao

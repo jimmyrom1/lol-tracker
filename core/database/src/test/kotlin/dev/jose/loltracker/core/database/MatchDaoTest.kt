@@ -65,6 +65,21 @@ class MatchDaoTest {
     }
 
     @Test
+    fun theSameRiotMatchCannotBeImportedTwice() = runTest {
+        val dao = db.matchDao()
+        val imported = entity("Ahri", "2026-09-01T10:00:00Z").copy(riotMatchId = "EUW1_1")
+        dao.upsert(entity("Jinx", "2026-09-01T11:00:00Z")) // manual, sin id de Riot
+
+        val first = dao.insertAll(listOf(imported, entity("Lux", "2026-09-01T12:00:00Z").copy(riotMatchId = "EUW1_2")))
+        val second = dao.insertAll(listOf(imported))
+
+        assertEquals(listOf(true, true), first.map { it > 0 })
+        assertEquals(listOf(-1L), second)
+        assertEquals(listOf("EUW1_1"), dao.existingRiotMatchIds(listOf("EUW1_1", "EUW1_9")))
+        dao.observeAll().test { assertEquals(3, awaitItem().size) }
+    }
+
+    @Test
     fun championCatalogIsReplacedAtomically() = runTest {
         val dao = db.championDao()
         dao.replaceAll(listOf(ChampionEntity("Ahri", "Ahri", "", "", "Mage", "16.18.1")), "16.18.1")

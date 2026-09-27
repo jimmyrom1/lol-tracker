@@ -4,6 +4,10 @@ import dev.jose.loltracker.core.analytics.AnalyticsEvent
 import dev.jose.loltracker.core.analytics.AnalyticsTracker
 import dev.jose.loltracker.core.data.ChampionRepository
 import dev.jose.loltracker.core.data.MatchRepository
+import dev.jose.loltracker.core.data.riot.ImportResult
+import dev.jose.loltracker.core.data.riot.RiotId
+import dev.jose.loltracker.core.data.riot.RiotImportRepository
+import dev.jose.loltracker.core.data.riot.RiotSettings
 import dev.jose.loltracker.core.model.Champion
 import dev.jose.loltracker.core.model.Match
 import dev.jose.loltracker.core.model.MatchResult
@@ -61,6 +65,23 @@ class FakeChampionRepository(champions: List<Champion> = TestData.champions) : C
     override suspend fun refresh(): Result<Unit> {
         refreshCalls++
         return refreshResult
+    }
+}
+
+class FakeRiotSettings(
+    override var riotId: String? = null,
+    override var userApiKey: String? = null,
+    /** Simula una key compilada desde local.properties. */
+    var builtInKey: String? = null,
+) : RiotSettings {
+    override fun apiKey() = userApiKey?.takeIf { it.isNotBlank() } ?: builtInKey
+}
+
+class FakeRiotImportRepository(var result: ImportResult = ImportResult.Success(0, 0, 0)) : RiotImportRepository {
+    val requests = mutableListOf<RiotId>()
+    override suspend fun import(riotId: RiotId, count: Int): ImportResult {
+        requests += riotId
+        return result
     }
 }
 

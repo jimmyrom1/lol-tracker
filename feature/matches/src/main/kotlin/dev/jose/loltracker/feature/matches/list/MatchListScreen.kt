@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material3.Card
@@ -25,7 +26,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -38,6 +41,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -55,6 +61,7 @@ import dev.jose.loltracker.core.designsystem.component.format
 import dev.jose.loltracker.core.designsystem.component.label
 import dev.jose.loltracker.core.model.Match
 import dev.jose.loltracker.feature.matches.R
+import dev.jose.loltracker.feature.matches.riot.RiotImportDialog
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -71,6 +78,8 @@ fun MatchListRoute(
     // El snackbar vive en el Scaffold de esta pantalla: así Material coloca el FAB encima de él
     // y el botón "Deshacer" no queda tapado.
     val snackbarHostState = remember { SnackbarHostState() }
+    var showRiotImport by rememberSaveable { mutableStateOf(false) }
+    if (showRiotImport) RiotImportDialog(onDismiss = { showRiotImport = false })
     val deletedMessage = stringResource(R.string.matches_deleted)
     val undoLabel = stringResource(R.string.matches_undo)
 
@@ -79,6 +88,7 @@ fun MatchListRoute(
         snackbarHostState = snackbarHostState,
         onFilterChange = viewModel::setFilter,
         onAddMatch = onAddMatch,
+        onImportFromRiot = { showRiotImport = true },
         onOpenMatch = onOpenMatch,
         onDelete = { match ->
             viewModel.delete(match)
@@ -98,12 +108,22 @@ fun MatchListScreen(
     snackbarHostState: SnackbarHostState,
     onFilterChange: (ResultFilter) -> Unit,
     onAddMatch: () -> Unit,
+    onImportFromRiot: () -> Unit,
     onOpenMatch: (Long) -> Unit,
     onDelete: (Match) -> Unit,
     today: LocalDate = LocalDate.now(),
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.matches_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.matches_title)) },
+                actions = {
+                    IconButton(onClick = onImportFromRiot) {
+                        Icon(Icons.Outlined.CloudDownload, contentDescription = stringResource(R.string.riot_action))
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -125,6 +145,13 @@ fun MatchListScreen(
                         icon = Icons.Outlined.SportsEsports,
                         title = stringResource(R.string.matches_empty_title),
                         body = stringResource(R.string.matches_empty_body),
+                        action = {
+                            OutlinedButton(onClick = onImportFromRiot) {
+                                Icon(Icons.Outlined.CloudDownload, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.riot_action))
+                            }
+                        },
                     )
 
                     state.sections.isEmpty() -> EmptyState(

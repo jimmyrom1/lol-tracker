@@ -90,6 +90,9 @@ class MatchEditViewModel @Inject constructor(
 
     private var submitted = false
 
+    /** La partida tal como estaba guardada: conserva los datos que el formulario no muestra. */
+    private var original: Match? = null
+
     init {
         analytics.track(AnalyticsEvent.screenView(if (matchId == 0L) "match_new" else "match_edit"))
         if (matchId != 0L) load()
@@ -101,6 +104,7 @@ class MatchEditViewModel @Inject constructor(
             _events.send(MatchEditEvent.NotFound)
             return@launch
         }
+        original = match
         _uiState.update { it.copy(isLoading = false, form = match.toForm()) }
     }
 
@@ -137,9 +141,14 @@ class MatchEditViewModel @Inject constructor(
         viewModelScope.launch {
             val form = state.form
             val champion = requireNotNull(form.champion)
+            // El formulario trabaja en minutos; si no se han tocado se conserva la duración exacta
+            // (las partidas importadas de Riot vienen con segundos).
+            val duration = original?.duration?.takeIf { it.toMinutes().toString() == form.durationMinutes.trim() }
+                ?: MatchValidator.durationOf(form.toDraft())
             matches.saveMatch(
                 Match(
                     id = matchId,
+                    riotMatchId = original?.riotMatchId,
                     championId = champion.id,
                     championName = champion.name,
                     role = form.role,
@@ -149,7 +158,7 @@ class MatchEditViewModel @Inject constructor(
                     deaths = form.deaths.trim().toInt(),
                     assists = form.assists.trim().toInt(),
                     creepScore = form.creepScore.trim().toInt(),
-                    duration = MatchValidator.durationOf(form.toDraft()),
+                    duration = duration,
                     playedAt = form.playedAt,
                     notes = form.notes.trim(),
                 ),

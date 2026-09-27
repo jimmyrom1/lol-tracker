@@ -2,6 +2,7 @@ package dev.jose.loltracker.core.domain
 
 import dev.jose.loltracker.core.model.Match
 import dev.jose.loltracker.core.model.MatchResult
+import dev.jose.loltracker.core.model.Queue
 import dev.jose.loltracker.core.model.Role
 
 data class PlayerStats(
@@ -59,7 +60,8 @@ object StatsCalculator {
             averageCsPerMinute = matches.map { it.csPerMinute }.average(),
             currentStreak = currentStreak(newestFirst),
             recentForm = newestFirst.take(RECENT_FORM_SIZE).map { it.result },
-            byRole = matches.groupBy { it.role }
+            // En ARAM no hay calles: el rol no significa nada y falsearía la tabla.
+            byRole = matches.filter { it.queue != Queue.ARAM }.groupBy { it.role }
                 .map { (role, games) -> RoleStats(role, games.size, games.count { it.result == MatchResult.WIN }) }
                 .sortedWith(compareByDescending<RoleStats> { it.games }.thenBy { it.role.ordinal }),
             byChampion = matches.groupBy { it.championId }

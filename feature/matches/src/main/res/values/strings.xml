@@ -42,6 +42,35 @@
     <string name="edit_cancel">Cancelar</string>
     <string name="edit_not_found">La partida ya no existe</string>
 
+    <string name="riot_action">Importar desde Riot</string>
+    <string name="riot_title">Importar desde Riot</string>
+    <string name="riot_body">Descarga tus últimas 20 partidas de la API oficial de Riot (servidor EUW). Las que ya estén importadas no se duplican.</string>
+    <string name="riot_id">Riot ID</string>
+    <string name="riot_id_error">Escríbelo como nombre#etiqueta</string>
+    <string name="riot_api_key">API key de Riot</string>
+    <string name="riot_api_key_help">Consíguela gratis en developer.riotgames.com (caduca cada 24 h)</string>
+    <string name="riot_api_key_built_in">Opcional: ya hay una key configurada en local.properties</string>
+    <string name="riot_import">Importar</string>
+    <string name="riot_close">Cerrar</string>
+    <string name="riot_importing">Descargando partidas…</string>
+    <plurals name="riot_imported">
+        <item quantity="one">%d partida nueva importada.</item>
+        <item quantity="other">%d partidas nuevas importadas.</item>
+    </plurals>
+    <plurals name="riot_already">
+        <item quantity="one">%d ya estaba.</item>
+        <item quantity="other">%d ya estaban.</item>
+    </plurals>
+    <plurals name="riot_skipped">
+        <item quantity="one">%d remake ignorado.</item>
+        <item quantity="other">%d remakes ignorados.</item>
+    </plurals>
+    <string name="riot_error_missing_key">Falta la API key de Riot.</string>
+    <string name="riot_error_invalid_key">Riot rechaza la API key: puede que haya caducado (duran 24 h).</string>
+    <string name="riot_error_not_found">No existe ninguna cuenta con ese Riot ID.</string>
+    <string name="riot_error_rate_limited">Demasiadas peticiones seguidas: espera un par de minutos.</string>
+    <string name="riot_error_network">No se pudo conectar con Riot. Revisa la conexión.</string>
+
     <string name="error_required">Obligatorio</string>
     <string name="error_not_a_number">Tiene que ser un número</string>
     <string name="error_out_of_range">Entre %1$d y %2$d</string>

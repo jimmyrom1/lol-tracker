@@ -104,4 +104,13 @@ class StatsCalculatorTest {
         assertEquals(listOf(Role.ADC, Role.TOP), stats.byRole.map { it.role })
         assertEquals(0.5, stats.byRole.first().winRate, 1e-9)
     }
+
+    @Test
+    fun `ARAM counts for totals but not for roles`() {
+        val stats = StatsCalculator.calculate(
+            listOf(match(WIN, role = Role.TOP), match(LOSS, role = Role.MID).copy(queue = Queue.ARAM)),
+        )
+        assertEquals(2, stats.games)
+        assertEquals(listOf(Role.TOP), stats.byRole.map { it.role })
+    }
 }
