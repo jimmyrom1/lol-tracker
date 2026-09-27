@@ -241,8 +241,10 @@ fun riotClient(
     keys: RiotApiKeyProvider,
     limiter: RiotRateLimiter,
     sleep: (Long) -> Unit = { Thread.sleep(it) },
+    endpoints: RiotEndpoints = RiotEndpoints.DIRECT,
 ): OkHttpClient = client.newBuilder()
-    .addInterceptor(RiotAuthInterceptor(keys))
+    // Directo a Riot: la key del usuario. Vía servidor: solo el token de la app; la key la pone el servidor.
+    .addInterceptor(if (endpoints.viaServer) AppTokenInterceptor(endpoints.appToken) else RiotAuthInterceptor(keys))
     // El limitador va antes del reintento: el reintento tras un 429 también cuenta.
     .addInterceptor(RateLimitInterceptor(sleep = sleep))
     .addNetworkInterceptor(limiter.interceptor())

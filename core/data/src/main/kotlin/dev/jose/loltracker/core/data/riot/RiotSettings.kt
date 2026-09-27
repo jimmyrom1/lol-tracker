@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.jose.loltracker.core.data.BuildConfig
+import dev.jose.loltracker.core.network.RiotEndpoints
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,6 +19,12 @@ interface RiotSettings {
     var puuid: String?
     var lastSyncAt: Instant?
 
+    /** Con lol-tracker-api la key la guarda el servidor: el móvil no la necesita. */
+    val keyManagedByServer: Boolean get() = false
+
+    /** Hay con qué llamar a Riot: una key en el móvil o el servidor. */
+    fun canCallRiot(): Boolean = keyManagedByServer || apiKey() != null
+
     /** La que se escribe en la app tiene prioridad sobre la de local.properties. */
     fun apiKey(): String? = userApiKey?.takeIf { it.isNotBlank() } ?: BuildConfig.RIOT_API_KEY.takeIf { it.isNotBlank() }
 }
@@ -25,7 +32,11 @@ interface RiotSettings {
 @Singleton
 internal class SharedPreferencesRiotSettings @Inject constructor(
     @ApplicationContext context: Context,
+    endpoints: RiotEndpoints,
 ) : RiotSettings {
+
+    override val keyManagedByServer: Boolean = endpoints.viaServer
+
     // Almacenamiento privado de la app. Una app pública necesitaría un backend propio que
     // guarde la key: cualquier cosa que esté en el dispositivo se puede extraer.
     private val prefs: SharedPreferences = context.getSharedPreferences("riot", Context.MODE_PRIVATE)

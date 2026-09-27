@@ -45,7 +45,8 @@ internal suspend fun <T> riotCall(block: suspend () -> T): RiotResult<T> = try {
 internal fun HttpException.toRiotError() = when (code()) {
     401, 403 -> RiotError.INVALID_API_KEY
     404 -> RiotError.ACCOUNT_NOT_FOUND
-    429 -> RiotError.RATE_LIMITED
+    // 429: límite de Riot (directo) o del servidor por cliente; 503: el servidor se ha quedado sin cuota de Riot.
+    429, 503 -> RiotError.RATE_LIMITED
     else -> RiotError.NETWORK
 }
 

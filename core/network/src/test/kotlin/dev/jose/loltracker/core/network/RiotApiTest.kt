@@ -75,6 +75,30 @@ class RiotApiTest {
     }
 
     @Test
+    fun viaTheServerTheAppSendsItsTokenAndNeverARiotKey() = runTest {
+        key = "RGAPI-no-deberia-salir-del-movil"
+        val endpoints = RiotEndpoints.server(server.url("/").toString(), appToken = "token-app")
+        val client = riotClient(OkHttpClient(), { key }, RiotRateLimiter(RiotEndpoints.SERVER_WINDOWS), sleep = {}, endpoints = endpoints)
+        val viaServer = createRiotService<RiotApi>(client, endpoints.regionalBaseUrl)
+        server.enqueue(MockResponse.Builder().body("""["EUW1_1"]""").build())
+
+        assertEquals(listOf("EUW1_1"), viaServer.matchIds("abc", count = 1))
+
+        val request = server.takeRequest()
+        assertEquals("/riot/europe/lol/match/v5/matches/by-puuid/abc/ids", request.url.encodedPath)
+        assertEquals("token-app", request.headers["X-App-Token"])
+        assertEquals(null, request.headers["X-Riot-Token"])
+    }
+
+    @Test
+    fun serverEndpointsKeepRiotPaths() {
+        val endpoints = RiotEndpoints.server("http://10.0.2.2:3000/")
+        assertEquals("http://10.0.2.2:3000/riot/europe/", endpoints.regionalBaseUrl)
+        assertEquals("http://10.0.2.2:3000/riot/euw1/", endpoints.platformBaseUrl)
+        assertEquals(null, endpoints.appToken)
+    }
+
+    @Test
     fun withoutAKeyNoRequestIsMade() = runTest {
         key = " "
         try {

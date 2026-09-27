@@ -41,7 +41,7 @@ class RiotImportViewModel @Inject constructor(
         return RiotImportUiState(
             riotId = settings.riotId.orEmpty(),
             apiKey = userKey,
-            hasBuiltInKey = userKey.isBlank() && settings.apiKey() != null,
+            hasBuiltInKey = settings.keyManagedByServer || (userKey.isBlank() && settings.apiKey() != null),
         )
     }
 

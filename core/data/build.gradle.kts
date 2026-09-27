@@ -8,11 +8,19 @@ plugins {
 
 // La API key de Riot nunca se versiona: sale de local.properties (riot.apiKey) o de la variable
 // de entorno RIOT_API_KEY. Sin ella la app funciona igual; solo pide la key al importar.
-val riotApiKey: String = providers.environmentVariable("RIOT_API_KEY").orElse(
-    providers.fileContents(rootProject.layout.projectDirectory.file("local.properties")).asText.map { text ->
-        Properties().apply { load(text.reader()) }.getProperty("riot.apiKey").orEmpty()
-    },
-).getOrElse("")
+val localProperties = providers.fileContents(rootProject.layout.projectDirectory.file("local.properties")).asText.map { text ->
+    Properties().apply { load(text.reader()) }
+}
+val usesServer = providers.environmentVariable("LOL_API_URL")
+    .orElse(localProperties.map { it.getProperty("lolApi.url").orEmpty() }).getOrElse("").isNotBlank()
+
+// Con lol-tracker-api la key vive en el servidor y NO se mete en el APK (de un APK se puede extraer).
+val riotApiKey: String = if (usesServer) {
+    ""
+} else {
+    providers.environmentVariable("RIOT_API_KEY")
+        .orElse(localProperties.map { it.getProperty("riot.apiKey").orEmpty() }).getOrElse("")
+}
 
 android {
     namespace = "dev.jose.loltracker.core.data"

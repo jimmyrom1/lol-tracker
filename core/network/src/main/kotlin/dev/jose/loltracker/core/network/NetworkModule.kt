@@ -35,25 +35,33 @@ object NetworkModule {
     fun dataDragonApi(client: OkHttpClient, @Named("dataDragonBaseUrl") baseUrl: String): DataDragonApi =
         createDataDragonApi(client, baseUrl)
 
+    @Provides
+    @Singleton
+    fun riotEndpoints(): RiotEndpoints =
+        BuildConfig.LOL_API_URL.takeIf { it.isNotBlank() }?.let { RiotEndpoints.server(it, BuildConfig.LOL_API_TOKEN) }
+            ?: RiotEndpoints.DIRECT
+
     /** Uno solo para toda la app: los límites de Riot son por key, no por pantalla. */
     @Provides
     @Singleton
-    fun riotRateLimiter(): RiotRateLimiter = RiotRateLimiter()
+    fun riotRateLimiter(endpoints: RiotEndpoints): RiotRateLimiter =
+        if (endpoints.viaServer) RiotRateLimiter(RiotEndpoints.SERVER_WINDOWS) else RiotRateLimiter()
 
     @Provides
     @Singleton
     @Named("riot")
-    fun riotOkHttp(client: OkHttpClient, keys: RiotApiKeyProvider, limiter: RiotRateLimiter): OkHttpClient =
-        riotClient(client, keys, limiter)
+    fun riotOkHttp(client: OkHttpClient, keys: RiotApiKeyProvider, limiter: RiotRateLimiter, endpoints: RiotEndpoints): OkHttpClient =
+        riotClient(client, keys, limiter, endpoints = endpoints)
 
     @Provides
     @Singleton
-    fun riotApi(@Named("riot") client: OkHttpClient): RiotApi = createRiotService(client, RIOT_EUROPE_BASE_URL)
+    fun riotApi(@Named("riot") client: OkHttpClient, endpoints: RiotEndpoints): RiotApi =
+        createRiotService(client, endpoints.regionalBaseUrl)
 
     @Provides
     @Singleton
-    fun riotPlatformApi(@Named("riot") client: OkHttpClient): RiotPlatformApi =
-        createRiotService(client, RIOT_EUW1_BASE_URL)
+    fun riotPlatformApi(@Named("riot") client: OkHttpClient, endpoints: RiotEndpoints): RiotPlatformApi =
+        createRiotService(client, endpoints.platformBaseUrl)
 }
 
 /** Fuera del módulo de Hilt para poder usarlo en los tests contra un MockWebServer. */

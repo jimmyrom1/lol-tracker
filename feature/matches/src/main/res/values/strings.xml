@@ -67,7 +67,7 @@
     <string name="riot_id_error">Escríbelo como nombre#etiqueta</string>
     <string name="riot_api_key">API key de Riot</string>
     <string name="riot_api_key_help">Consíguela gratis en developer.riotgames.com (caduca cada 24 h)</string>
-    <string name="riot_api_key_built_in">Opcional: ya hay una key configurada en local.properties</string>
+    <string name="riot_api_key_built_in">Opcional: ya hay una key configurada (en local.properties o en tu servidor)</string>
     <string name="riot_import">Importar</string>
     <string name="riot_close">Cerrar</string>
     <string name="riot_importing">Descargando partidas…</string>

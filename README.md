@@ -36,7 +36,7 @@ Funciona sin conexión: todo se guarda en local y el catálogo de campeones se c
 | Datos | Room (esquemas versionados y migraciones automáticas), Retrofit + kotlinx.serialization, OkHttp, WorkManager |
 | APIs | Data Dragon (catálogo e iconos), Riot API: account-v1, match-v5 (+ timeline), league-v4, champion-mastery-v4, summoner-v4, spectator-v5 |
 | DI | Hilt, con *convention plugins* de Gradle en `build-logic` |
-| Calidad | 89 tests en la JVM (JUnit, Turbine, Robolectric, Compose UI Test, MockWebServer), Android Lint |
+| Calidad | 91 tests en la JVM (JUnit, Turbine, Robolectric, Compose UI Test, MockWebServer), Android Lint |
 | CI | GitHub Actions: tests, lint y APK de debug como artefacto |
 
 ## Arrancar
@@ -70,6 +70,28 @@ variable de entorno `RIOT_API_KEY`:
 ```properties
 riot.apiKey=RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
+
+### Con servidor propio (sin key en el móvil)
+
+Para una app pública, la key de Riot no puede ir dentro del APK. Con
+[lol-tracker-api](https://github.com/jimmyrom1/lol-tracker-api) la key se queda en el servidor, y
+la caché es compartida: una partida se descarga una vez aunque la abran los 10 jugadores.
+
+```properties
+# local.properties (10.0.2.2 es el PC visto desde el emulador)
+lolApi.url=http://10.0.2.2:3000
+lolApi.token=
+```
+
+Con `lolApi.url` definida, las peticiones van a `<servidor>/riot/europe/...` y
+`<servidor>/riot/euw1/...` con las mismas rutas de Riot, y la app manda `X-App-Token` en lugar de
+la key. **El build deja de incluir `riot.apiKey`** aunque siga en `local.properties`; se comprobó
+buscando la key dentro del APK. El HTTP sin cifrar hacia `10.0.2.2` solo se permite en el build
+de debug (`network_security_config`).
+
+Probado de punta a punta en el emulador: con la app recién instalada y sin key, la primera
+importación pasa por el servidor, que pide a Riot. Una segunda instalación importa las mismas 16
+partidas en 2,5 s **sin ninguna petición a Riot**.
 
 ## Módulos
 
@@ -243,6 +265,7 @@ por la base de datos o por funciones puras, tests que prueban los casos difícil
 
 | Proyecto | Qué es |
 | --- | --- |
+| [LoL Tracker API](https://github.com/jimmyrom1/lol-tracker-api) | Backend en Node.js 24 + TypeScript + Fastify: proxy de la API de Riot con caché compartida en PostgreSQL, límite de peticiones y la key solo en el servidor. |
 | [Subscriptions API](https://github.com/jimmyrom1/subscriptions-api) | API REST con Java 21 y Spring Boot 4: prorrateo, facturación idempotente, ShedLock, Flyway y Testcontainers. |
 | [Reserva de salas](https://github.com/jimmyrom1/room-booking) | Flask + PostgreSQL + React: reservas sin solapes garantizadas por un `EXCLUDE` de PostgreSQL, JWT y exportación a calendario. |
 | [Mini Facturas](https://github.com/jimmyrom1/mini-invoice-generator) | Flask + PostgreSQL + React: facturas con IVA por línea, IRPF, numeración correlativa atómica y PDF. |

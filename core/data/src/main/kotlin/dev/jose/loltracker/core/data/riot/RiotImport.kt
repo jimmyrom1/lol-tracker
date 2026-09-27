@@ -66,7 +66,7 @@ internal class DefaultRiotImportRepository @Inject constructor(
     }
 
     override suspend fun import(riotId: RiotId, count: Int): ImportResult = mutex.withLock {
-        if (settings.apiKey() == null) return ImportResult.Failure(RiotError.MISSING_API_KEY)
+        if (!settings.canCallRiot()) return ImportResult.Failure(RiotError.MISSING_API_KEY)
         val result = riotCall {
             val puuid = puuidFor(riotId)
             val ids = api.matchIds(puuid, count = count.coerceIn(1, RiotImportRepository.MAX_COUNT))
