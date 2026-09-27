@@ -72,6 +72,28 @@ fun ChampionAvatar(iconUrl: String?, name: String, modifier: Modifier = Modifier
     }
 }
 
+/** Icono cuadrado de Data Dragon (objeto, hechizo...). Sin URL pinta una casilla vacía. */
+@Composable
+fun GameIcon(url: String?, contentDescription: String?, modifier: Modifier = Modifier, size: Dp = 28.dp) {
+    val shape = RoundedCornerShape(size / 6)
+    Box(
+        modifier
+            .size(size)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape),
+    ) {
+        if (!url.isNullOrBlank()) {
+            SubcomposeAsyncImage(
+                model = url,
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(size),
+            )
+        }
+    }
+}
+
 @Composable
 fun ResultBadge(result: MatchResult, modifier: Modifier = Modifier) {
     val colors = LocalResultColors.current

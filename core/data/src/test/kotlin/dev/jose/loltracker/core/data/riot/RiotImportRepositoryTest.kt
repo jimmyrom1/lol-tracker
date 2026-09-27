@@ -1,123 +1,203 @@
 package dev.jose.loltracker.core.data.riot
 
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
 import dev.jose.loltracker.core.data.ChampionRepository
-import dev.jose.loltracker.core.database.MatchDao
+import dev.jose.loltracker.core.database.LolDatabase
 import dev.jose.loltracker.core.database.MatchEntity
+import dev.jose.loltracker.core.database.toModel
 import dev.jose.loltracker.core.model.Champion
 import dev.jose.loltracker.core.model.MatchResult
 import dev.jose.loltracker.core.model.Queue
 import dev.jose.loltracker.core.model.Role
 import dev.jose.loltracker.core.network.createRiotApi
+import java.time.Clock
 import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import mockwebserver3.Dispatcher
-import mockwebserver3.MockResponse
-import mockwebserver3.MockWebServer
-import mockwebserver3.RecordedRequest
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+/** Reloj que el test puede adelantar. */
+class TestClock(var now: Instant = Instant.parse("2026-09-27T10:00:00Z")) : Clock() {
+    override fun instant(): Instant = now
+    override fun getZone(): ZoneId = ZoneOffset.UTC
+    override fun withZone(zone: ZoneId?): Clock = this
+}
+
+class FakeSettings : RiotSettings {
+    var key: String? = "RGAPI-test"
+    override var riotId: String? = null
+    override var userApiKey: String? = null
+    override var puuid: String? = null
+    override var lastSyncAt: Instant? = null
+    override fun apiKey() = key
+}
+
+class FakeChampions : ChampionRepository {
+    override fun observeChampions(): Flow<List<Champion>> = flowOf(
+        listOf(
+            Champion("MonkeyKing", "Wukong", "el Rey Mono", "", emptyList(), key = "62"),
+            Champion("Fiddlesticks", "Fiddlesticks", "el terror ancestral", "", emptyList(), key = "9"),
+            Champion("LeeSin", "Lee Sin", "el monje ciego", "", emptyList(), key = "64"),
+            Champion("Gwen", "Gwen", "la costurera sagrada", "", emptyList(), key = "887"),
+        ),
+    )
+
+    override fun observePatchVersion(): Flow<String?> = flowOf("16.19.1")
+
+    override suspend fun refresh() = Result.success(Unit)
+}
+
+@RunWith(RobolectricTestRunner::class)
 class RiotImportRepositoryTest {
 
-    private val puuid = "puuid-jimmy"
-    private val server = MockWebServer()
+    private val riot = FakeRiotServer().start()
     private val settings = FakeSettings()
-    private val dao = FakeMatchDao()
-    private var accountStatus = 200
-    private val matchIds = listOf("EUW1_3", "EUW1_2", "EUW1_1")
+    private val clock = TestClock()
+    private lateinit var db: LolDatabase
     private lateinit var repository: DefaultRiotImportRepository
+
+    private val jimmy = RiotId("jimmyrom", "uarra")
 
     @Before
     fun setUp() {
-        server.dispatcher = object : Dispatcher() {
-            override fun dispatch(request: RecordedRequest): MockResponse {
-                val path = request.url.encodedPath
-                return when {
-                    path.startsWith("/riot/account") ->
-                        MockResponse.Builder().code(accountStatus).body("""{"puuid":"$puuid"}""").build()
-                    path.endsWith("/ids") -> MockResponse.Builder().body(matchIds.joinToString(",", "[", "]") { "\"$it\"" }).build()
-                    else -> MockResponse.Builder().body(matchJson(path.substringAfterLast('/'))).build()
-                }
-            }
-        }
-        server.start()
-        val api = createRiotApi(OkHttpClient(), server.url("/").toString(), settings::apiKey, sleep = {})
-        repository = DefaultRiotImportRepository(api, dao, FakeChampions(), settings)
+        db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), LolDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val api = createRiotApi(OkHttpClient(), riot.url(), settings::apiKey, sleep = {})
+        repository = DefaultRiotImportRepository(api, db.matchDao(), db.matchDetailDao(), db.cacheDao(), FakeChampions(), settings, clock)
     }
 
     @After
-    fun tearDown() = server.close()
-
-    /** EUW1_1 es un remake de 3 minutos; EUW1_2 una ARAM; EUW1_3 una clasificatoria de jungla. */
-    private fun matchJson(id: String): String {
-        val (queue, seconds, position, champion) = when (id) {
-            "EUW1_1" -> listOf("420", "190", "MIDDLE", "Ahri")
-            "EUW1_2" -> listOf("450", "1100", "", "FiddleSticks")
-            else -> listOf("420", "1834", "JUNGLE", "MonkeyKing")
-        }
-        return """
-            {"metadata":{"matchId":"$id"},
-             "info":{"gameCreation":1790000000000,"gameDuration":$seconds,"queueId":$queue,
-                     "participants":[
-                       {"puuid":"otro","championName":"Jinx","kills":0,"deaths":9,"assists":1,"totalMinionsKilled":10,"win":false},
-                       {"puuid":"$puuid","championName":"$champion","teamPosition":"$position",
-                        "kills":7,"deaths":3,"assists":12,"totalMinionsKilled":40,"neutralMinionsKilled":150,"win":true}]}}
-        """.trimIndent()
+    fun tearDown() {
+        db.close()
+        riot.close()
     }
 
+    private suspend fun matches() = db.matchDao().observeAll().first().map { it.toModel() }
+
     @Test
-    fun importsNewMatchesSkippingRemakes() = runTest {
-        val result = repository.import(RiotId("jimmyrom", "uarra"))
+    fun importsNewMatchesWithTheirDetailAndSkipsRemakes() = runTest {
+        val result = repository.import(jimmy)
 
         assertEquals(ImportResult.Success(imported = 2, alreadyImported = 0, skipped = 1), result)
-        val jungle = dao.rows.value.single { it.riotMatchId == "EUW1_3" }
+        val jungle = matches().single { it.riotMatchId == "EUW1_3" }
         assertEquals("MonkeyKing", jungle.championId)
         assertEquals("Wukong", jungle.championName) // nombre traducido del catálogo
         assertEquals(Role.JUNGLE, jungle.role)
         assertEquals(Queue.RANKED_SOLO, jungle.queue)
         assertEquals(MatchResult.WIN, jungle.result)
         assertEquals(190, jungle.creepScore) // súbditos + monstruos neutrales
-        assertEquals(Duration.ofSeconds(1834).seconds, jungle.durationSeconds)
-
-        val aram = dao.rows.value.single { it.riotMatchId == "EUW1_2" }
-        assertEquals("Fiddlesticks", aram.championId) // capitalización de Data Dragon
+        assertEquals(Duration.ofSeconds(1834), jungle.duration)
+        val aram = matches().single { it.riotMatchId == "EUW1_2" }
         assertEquals(Queue.ARAM, aram.queue)
+        assertEquals("Fiddlesticks", aram.championId) // capitalización de Data Dragon
+
+        val detail = db.matchDetailDao().get("EUW1_3")!!.toModel()
+        assertEquals(2, detail.participants.size)
+        assertEquals("jimmyrom#uarra", detail.me?.riotId)
+        assertEquals(0.61, detail.me?.killParticipation!!, 1e-9)
+        assertEquals(listOf(11, 4), detail.me?.summonerSpells)
+        assertEquals(9, detail.teams.first { it.teamId == 100 }.towers)
+        assertNull("la línea temporal se pide al abrir el detalle", detail.timeline)
+
         assertEquals("jimmyrom#uarra", settings.riotId)
+        assertEquals(riot.puuid, settings.puuid)
+        assertEquals(clock.now, settings.lastSyncAt)
     }
 
     @Test
-    fun aSecondImportOnlyDownloadsWhatIsNew() = runTest {
-        repository.import(RiotId("jimmyrom", "uarra"))
-        val requestsAfterFirst = server.requestCount
+    fun aSecondImportOnlyAsksForTheListOfIds() = runTest {
+        repository.import(jimmy)
+        riot.paths.clear()
 
-        val result = repository.import(RiotId("jimmyrom", "uarra"))
+        val result = repository.import(jimmy)
 
-        // Cuenta + lista de ids + el remake (que no se guarda y por tanto se vuelve a consultar).
-        assertEquals(3, server.requestCount - requestsAfterFirst)
-        assertEquals(ImportResult.Success(imported = 0, alreadyImported = 2, skipped = 1), result)
-        assertEquals(2, dao.rows.value.size)
+        // Ni la cuenta (el PUUID está guardado) ni el remake (se recuerda que se descartó).
+        assertEquals(listOf("/lol/match/v5/matches/by-puuid/${riot.puuid}/ids"), riot.paths)
+        assertEquals(ImportResult.Success(imported = 0, alreadyImported = 2, skipped = 0), result)
+    }
+
+    @Test
+    fun onlyTheNewMatchIsDownloaded() = runTest {
+        repository.import(jimmy)
+        riot.paths.clear()
+        riot.matchIds = listOf("EUW1_4") + riot.matchIds
+
+        val result = repository.import(jimmy)
+
+        assertEquals(1, riot.paths.count { it.endsWith("/EUW1_4") })
+        assertEquals(2, riot.paths.size) // lista de ids + la partida nueva
+        assertEquals(1, (result as ImportResult.Success).imported)
+    }
+
+    @Test
+    fun matchesImportedBeforeDetailsExistedAreBackfilled() = runTest {
+        // Como quedaron las partidas importadas con la versión anterior: sin fila de detalle.
+        db.matchDao().insertAll(
+            listOf(
+                MatchEntity(
+                    championId = "MonkeyKing", championName = "Wukong", role = Role.JUNGLE, queue = Queue.RANKED_SOLO,
+                    result = MatchResult.WIN, kills = 7, deaths = 3, assists = 12, creepScore = 190, durationSeconds = 1834,
+                    playedAt = Instant.parse("2026-09-20T10:00:00Z"), notes = "", riotMatchId = "EUW1_OLD",
+                ),
+            ),
+        )
+        riot.matchIds = emptyList()
+
+        repository.import(jimmy)
+
+        assertNotNull(db.matchDetailDao().get("EUW1_OLD"))
+        assertEquals(1, matches().size) // no se duplica la partida
+    }
+
+    @Test
+    fun syncIfStaleDoesNothingForFifteenMinutes() = runTest {
+        settings.riotId = jimmy.toString()
+        repository.syncSaved()
+        riot.paths.clear()
+
+        clock.now = clock.now.plus(Duration.ofMinutes(10))
+        assertNull(repository.syncSavedIfStale())
+        assertEquals(emptyList<String>(), riot.paths)
+
+        clock.now = clock.now.plus(Duration.ofMinutes(6))
+        assertNotNull(repository.syncSavedIfStale())
+        assertEquals(1, riot.paths.size)
+    }
+
+    @Test
+    fun syncWithoutAnAccountIsNotConfigured() = runTest {
+        assertEquals(ImportResult.Failure(RiotError.NOT_CONFIGURED), repository.syncSaved())
+        assertEquals(0, riot.server.requestCount)
     }
 
     @Test
     fun unknownAccountAndBadKeyAreReported() = runTest {
-        accountStatus = 404
-        assertEquals(ImportResult.Failure(ImportError.ACCOUNT_NOT_FOUND), repository.import(RiotId("nadie", "euw")))
-        accountStatus = 403
-        assertEquals(ImportResult.Failure(ImportError.INVALID_API_KEY), repository.import(RiotId("jimmyrom", "uarra")))
+        riot.accountStatus = 404
+        assertEquals(ImportResult.Failure(RiotError.ACCOUNT_NOT_FOUND), repository.import(RiotId("nadie", "euw")))
+        riot.accountStatus = 403
+        assertEquals(ImportResult.Failure(RiotError.INVALID_API_KEY), repository.import(jimmy))
     }
 
     @Test
     fun withoutKeyNothingIsRequested() = runTest {
         settings.key = null
-        assertEquals(ImportResult.Failure(ImportError.MISSING_API_KEY), repository.import(RiotId("jimmyrom", "uarra")))
-        assertEquals(0, server.requestCount)
+        assertEquals(ImportResult.Failure(RiotError.MISSING_API_KEY), repository.import(jimmy))
+        assertEquals(0, riot.server.requestCount)
     }
 
     @Test
@@ -127,43 +207,5 @@ class RiotImportRepositoryTest {
         assertNull(RiotId.parse("jimmyrom"))
         assertNull(RiotId.parse("a#b#c"))
         assertNull(RiotId.parse("jimmyrom#x"))
-    }
-
-    private class FakeSettings : RiotSettings {
-        var key: String? = "RGAPI-test"
-        override var riotId: String? = null
-        override var userApiKey: String? = null
-        override fun apiKey() = key
-    }
-
-    private class FakeChampions : ChampionRepository {
-        override fun observeChampions(): Flow<List<Champion>> = flowOf(
-            listOf(
-                Champion("MonkeyKing", "Wukong", "el Rey Mono", "", emptyList()),
-                Champion("Fiddlesticks", "Fiddlesticks", "el terror ancestral", "", emptyList()),
-            ),
-        )
-
-        override suspend fun refresh() = Result.success(Unit)
-    }
-
-    private class FakeMatchDao : MatchDao {
-        val rows = MutableStateFlow<List<MatchEntity>>(emptyList())
-        override fun observeAll() = rows
-        override suspend fun getById(id: Long) = rows.value.firstOrNull { it.id == id }
-        override suspend fun upsert(match: MatchEntity) = error("no se usa")
-        override suspend fun delete(id: Long) = Unit
-        override suspend fun existingRiotMatchIds(riotMatchIds: List<String>) =
-            rows.value.mapNotNull { it.riotMatchId }.filter { it in riotMatchIds }
-
-        override suspend fun insertAll(matches: List<MatchEntity>): List<Long> = matches.map { m ->
-            if (rows.value.any { it.riotMatchId == m.riotMatchId }) {
-                -1L
-            } else {
-                val id = rows.value.size + 1L
-                rows.value = rows.value + m.copy(id = id)
-                id
-            }
-        }
     }
 }

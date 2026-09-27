@@ -21,13 +21,16 @@ internal class DataDragonChampionRepository @Inject constructor(
     override fun observeChampions(): Flow<List<Champion>> =
         dao.observeAll().map { list -> list.map { it.toModel() } }
 
+    override fun observePatchVersion(): Flow<String?> = dao.observePatchVersion()
+
     override suspend fun refresh(): Result<Unit> = try {
         val latest = api.versions().first()
         // Solo se descarga el catálogo (~170 campeones) cuando sale un parche nuevo.
-        if (latest != dao.cachedPatchVersion()) {
+        // También si el catálogo es anterior a la v3 y le falta el id numérico de cada campeón.
+        if (latest != dao.cachedPatchVersion() || dao.hasMissingKeys()) {
             val champions = api.champions(latest, LOCALE).data.values.map { dto ->
                 val model = dto.toModel(baseUrl, latest)
-                ChampionEntity(model.id, model.name, model.title, model.iconUrl, model.tags.joinToString(","), latest)
+                ChampionEntity(model.id, model.name, model.title, model.iconUrl, model.tags.joinToString(","), latest, model.key)
             }
             dao.replaceAll(champions, latest)
         }

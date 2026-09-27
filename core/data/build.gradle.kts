@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.lol.android.library)
     alias(libs.plugins.lol.hilt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // La API key de Riot nunca se versiona: sale de local.properties (riot.apiKey) o de la variable
@@ -28,7 +29,12 @@ dependencies {
     implementation(libs.retrofit) // solo para leer el código HTTP de los errores
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.core.ktx)
+    api(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     testImplementation(libs.turbine)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
 }

@@ -10,6 +10,7 @@ import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -27,7 +28,7 @@ class DataDragonChampionRepositoryTest {
         override suspend fun champions(version: String, locale: String): ChampionsResponse {
             championCalls++
             return ChampionsResponse(
-                mapOf("Ahri" to ChampionDto("Ahri", "Ahri", "la Vastaya", listOf("Mage"), ImageDto("Ahri.png"))),
+                mapOf("Ahri" to ChampionDto(id = "Ahri", key = "103", name = "Ahri", title = "la Vastaya", tags = listOf("Mage"), image = ImageDto("Ahri.png"))),
             )
         }
     }
@@ -36,6 +37,8 @@ class DataDragonChampionRepositoryTest {
         val rows = MutableStateFlow<List<ChampionEntity>>(emptyList())
         override fun observeAll(): Flow<List<ChampionEntity>> = rows
         override suspend fun cachedPatchVersion() = rows.value.firstOrNull()?.patchVersion
+        override fun observePatchVersion(): Flow<String?> = rows.map { it.firstOrNull()?.patchVersion }
+        override suspend fun hasMissingKeys() = rows.value.any { it.key.isEmpty() }
         override suspend fun upsertAll(champions: List<ChampionEntity>) {
             rows.value = (rows.value.filterNot { r -> champions.any { it.id == r.id } } + champions).sortedBy { it.name }
         }

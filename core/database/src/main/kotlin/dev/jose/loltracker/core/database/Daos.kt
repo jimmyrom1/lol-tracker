@@ -33,6 +33,42 @@ interface MatchDao {
 }
 
 @Dao
+interface MatchDetailDao {
+
+    @Query("SELECT * FROM match_details WHERE riot_match_id = :riotMatchId")
+    suspend fun get(riotMatchId: String): MatchDetailEntity?
+
+    @Query("SELECT * FROM match_details WHERE riot_match_id = :riotMatchId")
+    fun observe(riotMatchId: String): Flow<MatchDetailEntity?>
+
+    @Query("SELECT * FROM match_details")
+    fun observeAll(): Flow<List<MatchDetailEntity>>
+
+    /** Partidas importadas cuyo detalle falta (importadas antes de la v3). */
+    @Query(
+        "SELECT m.riot_match_id FROM matches m LEFT JOIN match_details d ON d.riot_match_id = m.riot_match_id " +
+            "WHERE m.riot_match_id IS NOT NULL AND d.riot_match_id IS NULL",
+    )
+    suspend fun matchIdsWithoutDetail(): List<String>
+
+    @Upsert
+    suspend fun upsert(detail: MatchDetailEntity)
+
+    @Upsert
+    suspend fun upsertAll(details: List<MatchDetailEntity>)
+}
+
+@Dao
+interface CacheDao {
+
+    @Query("SELECT * FROM riot_cache WHERE cache_key = :key")
+    suspend fun get(key: String): CacheEntity?
+
+    @Upsert
+    suspend fun put(entry: CacheEntity)
+}
+
+@Dao
 interface ChampionDao {
 
     @Query("SELECT * FROM champions ORDER BY name COLLATE NOCASE")
@@ -40,6 +76,13 @@ interface ChampionDao {
 
     @Query("SELECT patch_version FROM champions LIMIT 1")
     suspend fun cachedPatchVersion(): String?
+
+    @Query("SELECT patch_version FROM champions LIMIT 1")
+    fun observePatchVersion(): Flow<String?>
+
+    /** Catálogos guardados antes de la v3 no tienen el id numérico: hay que volver a descargarlos. */
+    @Query("SELECT EXISTS(SELECT 1 FROM champions WHERE `key` = '')")
+    suspend fun hasMissingKeys(): Boolean
 
     @Upsert
     suspend fun upsertAll(champions: List<ChampionEntity>)

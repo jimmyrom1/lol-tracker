@@ -5,12 +5,27 @@
 App Android para llevar el registro de tus partidas de League of Legends y ver cómo evoluciona tu
 juego: porcentaje de victorias, KDA, farmeo por minuto, racha actual y rendimiento por rol y por
 campeón. Las partidas se pueden apuntar a mano o **importar directamente desde la API oficial de
-Riot** con tu Riot ID. Funciona sin conexión: todo se guarda en local y el catálogo de campeones
-se cachea.
+Riot** con tu Riot ID, que además da:
 
-| Partidas | Estadísticas | Nueva partida | Importar desde Riot |
+- **Detalle de cada partida**: daño, oro, participación en asesinatos, visión, objetos y hechizos,
+  los 10 jugadores y la **diferencia de oro minuto a minuto**, con tu ventaja o desventaja de CS y
+  oro frente a tu rival de línea.
+- **Asistente de draft** basado en tu propio historial: qué campeón te conviene según tu rol, los
+  rivales y los aliados ya elegidos.
+- **Partida en curso**: en la pantalla de carga, rango y maestría de los 10 jugadores y tu balance
+  contra cada campeón rival.
+- **Perfil**: rango en Solo/Dúo y Flexible y campeones con más maestría.
+- **Sincronización automática** cada 6 horas, sin pasar nunca del límite de peticiones de la key.
+
+Funciona sin conexión: todo se guarda en local y el catálogo de campeones se cachea.
+
+| Partidas | Detalle de partida | Draft | Perfil |
 | --- | --- | --- | --- |
-| ![Partidas](docs/partidas.png) | ![Estadísticas](docs/estadisticas.png) | ![Formulario](docs/formulario.png) | ![Riot](docs/riot.png) |
+| ![Partidas](docs/partidas.png) | ![Detalle](docs/detalle.png) | ![Draft](docs/draft.png) | ![Perfil](docs/perfil.png) |
+
+| Estadísticas | Nueva partida | Importar desde Riot |
+| --- | --- | --- |
+| ![Estadísticas](docs/estadisticas.png) | ![Formulario](docs/formulario.png) | ![Riot](docs/riot.png) |
 
 ## Stack
 
@@ -18,10 +33,10 @@ se cachea.
 | --- | --- |
 | UI | Jetpack Compose, Material 3, Navigation Compose con rutas *type-safe*, Coil 3 |
 | Arquitectura | MVVM + UDF (`StateFlow` inmutable por pantalla), multimódulo por capas y features |
-| Datos | Room (esquemas versionados y migración automática), Retrofit + kotlinx.serialization, OkHttp |
-| APIs | Data Dragon (catálogo e iconos de campeones), Riot API account-v1 y match-v5 |
+| Datos | Room (esquemas versionados y migraciones automáticas), Retrofit + kotlinx.serialization, OkHttp, WorkManager |
+| APIs | Data Dragon (catálogo e iconos), Riot API: account-v1, match-v5 (+ timeline), league-v4, champion-mastery-v4, summoner-v4, spectator-v5 |
 | DI | Hilt, con *convention plugins* de Gradle en `build-logic` |
-| Calidad | 58 tests en la JVM (JUnit, Turbine, Robolectric, Compose UI Test, MockWebServer), Android Lint |
+| Calidad | 89 tests en la JVM (JUnit, Turbine, Robolectric, Compose UI Test, MockWebServer), Android Lint |
 | CI | GitHub Actions: tests, lint y APK de debug como artefacto |
 
 ## Arrancar
@@ -43,9 +58,11 @@ adb shell am start -n dev.jose.loltracker/.DemoDataActivity
 ### Importar tus partidas de Riot
 
 1. Entra en <https://developer.riotgames.com> con tu cuenta de Riot y copia la
-   *Development API Key* (es gratuita y caduca cada 24 horas).
+   *Development API Key* (es gratuita y caduca cada 24 horas), o registra el proyecto como
+   *Personal Product* para tener una *Personal API Key* que no caduca.
 2. En la app, pulsa el icono de la nube en **Partidas**, escribe tu Riot ID (`nombre#etiqueta`) y
-   pega la key. Se descargan las 20 últimas partidas del servidor EUW.
+   pega la key. Se descargan las 20 últimas partidas del servidor EUW. Desde **Perfil** puedes
+   traer las últimas 100.
 
 También puedes dejar la key fuera de la app, en `local.properties` (que no se sube a git) o en la
 variable de entorno `RIOT_API_KEY`:
@@ -60,12 +77,11 @@ riot.apiKey=RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 graph TD
     app --> fm[feature:matches]
     app --> fs[feature:stats]
-    fm --> data[core:data]
-    fs --> data
-    fm --> ds[core:designsystem]
-    fs --> ds
-    fm --> domain[core:domain]
-    fs --> domain
+    app --> fd[feature:draft]
+    app --> fp[feature:profile]
+    fm & fs & fd & fp --> data[core:data]
+    fm & fs & fd & fp --> ds[core:designsystem]
+    fs & fd --> domain[core:domain]
     data --> database[core:database]
     data --> network[core:network]
     domain --> model[core:model]
@@ -80,6 +96,63 @@ graph TD
   cada `build.gradle.kts` de módulo ocupa unas pocas líneas.
 
 ## Decisiones técnicas
+
+### No pasar nunca del límite de la key
+
+Riot limita cada key a 20 peticiones por segundo y 100 cada 2 minutos, por región de enrutado.
+Recibir `429` a menudo puede acabar con la key suspendida, así que la app no espera a que Riot
+se queje:
+
+- [`RiotRateLimiter`](core/network/src/main/kotlin/dev/jose/loltracker/core/network/RiotRateLimiter.kt)
+  es un interceptor de OkHttp con ventanas deslizantes por host (`europe` y `euw1` cuentan por
+  separado, como en Riot). Bloquea cada petición hasta que cabe, con margen: **15/s y 90/2 min**. Hay
+  una sola instancia para toda la app, así que la sincronización en segundo plano y las pantallas
+  comparten el mismo presupuesto.
+- Un test lanza 200 peticiones con un reloj falso y comprueba que ninguna ventana de 1 s o de
+  2 min se pasa. En el emulador, importar 100 partidas (≈85 peticiones) tardó 36 s sin un solo
+  `429`.
+- Si aun así llega un `429` (la misma key usada desde otro sitio), se respeta `Retry-After` y se
+  reintenta una vez.
+
+**Cada dato se pide lo menos posible:**
+
+| Dato | Cuándo se pide | Coste |
+| --- | --- | --- |
+| Partida jugada | Una vez: no cambia, se guarda en Room | 1 petición |
+| Remake | Una vez: se recuerda que se descartó | 1 petición |
+| Línea temporal | Solo al abrir el detalle, y una vez | 1 petición |
+| PUUID de la cuenta | Una vez: se guarda | 1 petición |
+| Perfil (rango y maestría) | Caché de 10 minutos | 3 peticiones |
+| Rango y maestría de otros jugadores | Caché de 30 min / 12 h | 2 por jugador |
+| Partida en curso | Solo al pulsar el botón, nunca en bucle | 1 + hasta 20 |
+| Sincronización | Cada 6 h con red, y al abrir la app si han pasado 15 min | 1 + 1 por partida nueva |
+
+Si Riot rechaza la key, la tarea de fondo **no reintenta** (`Result.failure()`), porque insistir
+con una key inválida es justo lo que Riot vigila. Solo reintenta con backoff los fallos de red.
+
+### El asistente de draft usa tu historial, no estadísticas globales
+
+La API gratuita no da para descargar millones de partidas, y además lo que funciona para ti es más
+útil que la media de todo el mundo.
+[`DraftAdvisor`](core/domain/src/main/kotlin/dev/jose/loltracker/core/domain/DraftAdvisor.kt) es
+una función pura:
+
+- La puntuación es un porcentaje de victorias **bayesiano**: se suman 4 partidas imaginarias al
+  50 %. Así un 1-0 (60 %) no gana a un 8-4 (62,5 %).
+- Las partidas contra los rivales o junto a los aliados de este draft cuentan el doble, porque se
+  parecen más a la que vas a jugar.
+- No sugiere campeones que ya están cogidos, y respeta el rol.
+- En la partida en curso, la API de espectador da los ids numéricos de los campeones. Se traducen
+  con el `key` de Data Dragon, que hubo que añadir al catálogo (migración v3). Así el draft se
+  rellena solo.
+
+### Detalle de partida sin tablas de más
+
+Los 10 jugadores, los objetivos y el resumen de la línea temporal se guardan como JSON en una fila
+por partida (`match_details`). Nunca se consultan por columnas, y así el esquema no depende de
+los ~150 campos que devuelve Riot. La línea temporal completa (~1 MB) no se guarda: se resume al
+llegar en la diferencia de oro por minuto y las diferencias en línea a los 10 y 15 minutos. Las
+partidas importadas antes de que existiera el detalle se completan solas, 20 por sincronización.
 
 ### Importación desde Riot sin duplicados
 
@@ -157,9 +230,10 @@ proveedor sería una implementación nueva, sin tocar las features. En los tests
 | Módulo | Qué cubren |
 | --- | --- |
 | `core:domain` | Validación del formulario, KDA agregado, rachas, forma reciente, agrupación por rol y campeón |
-| `core:database` | DAOs sobre Room en memoria (Robolectric), índice único de Riot, migración v1 → v2 |
-| `core:network` | Parseo de Data Dragon y Riot con MockWebServer, cabecera de la key, reintento tras `429` |
-| `core:data` | Caché de campeones por parche, importación de Riot de punta a punta (remakes, duplicados, errores) |
+| `core:database` | DAOs sobre Room en memoria (Robolectric), índice único de Riot, migraciones v1 → v2 → v3 |
+| `core:network` | Parseo de Data Dragon y Riot con MockWebServer, cabecera de la key, reintento tras `429`, limitador de peticiones con reloj falso |
+| `core:data` | Contra Room real y un servidor de Riot simulado: importación sin duplicados, peticiones exactas por sincronización, relleno de detalles antiguos, caché de perfil y partida en curso, resumen de la línea temporal |
+| `core:domain` (draft) | Suavizado bayesiano, peso de los enfrentamientos, filtro de rol y campeones ya cogidos |
 | `feature:*` | ViewModels con repositorios falsos y Turbine; formulario en Compose con Robolectric |
 
 ## Otros proyectos

@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.jose.loltracker.core.data.riot.ImportError
+import dev.jose.loltracker.core.data.riot.RiotError
 import dev.jose.loltracker.core.data.riot.ImportResult
 import dev.jose.loltracker.feature.matches.R
 
@@ -130,11 +130,12 @@ private fun ResultText(result: ImportResult) {
         is ImportResult.Failure -> Text(
             stringResource(
                 when (result.error) {
-                    ImportError.MISSING_API_KEY -> R.string.riot_error_missing_key
-                    ImportError.INVALID_API_KEY -> R.string.riot_error_invalid_key
-                    ImportError.ACCOUNT_NOT_FOUND -> R.string.riot_error_not_found
-                    ImportError.RATE_LIMITED -> R.string.riot_error_rate_limited
-                    ImportError.NETWORK -> R.string.riot_error_network
+                    RiotError.NOT_CONFIGURED -> R.string.riot_id_error
+                    RiotError.MISSING_API_KEY -> R.string.riot_error_missing_key
+                    RiotError.INVALID_API_KEY -> R.string.riot_error_invalid_key
+                    RiotError.ACCOUNT_NOT_FOUND -> R.string.riot_error_not_found
+                    RiotError.RATE_LIMITED -> R.string.riot_error_rate_limited
+                    RiotError.NETWORK -> R.string.riot_error_network
                 },
             ),
             color = MaterialTheme.colorScheme.error,

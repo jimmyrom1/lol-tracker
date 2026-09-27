@@ -47,4 +47,39 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun v2ToV3AddsTheNewTablesAndMarksTheCatalogAsIncomplete() {
+        helper.createDatabase(2).apply {
+            execSQL(
+                "INSERT INTO champions (id, name, title, icon_url, tags, patch_version) " +
+                    "VALUES ('Ahri', 'Ahri', '', '', 'Mage', '16.18.1')",
+            )
+            execSQL(
+                """
+                INSERT INTO matches (champion_id, champion_name, role, queue, result, kills, deaths, assists,
+                                     creep_score, duration_seconds, played_at, notes, riot_match_id)
+                VALUES ('Ahri', 'Ahri', 'MID', 'RANKED_SOLO', 'WIN', 9, 2, 11, 231, 1860, 1790000000000, '', 'EUW1_1')
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(3)
+
+        db.prepare("SELECT `key` FROM champions WHERE id = 'Ahri'").use {
+            assertTrue(it.step())
+            // Vacío: el repositorio lo detecta y vuelve a descargar el catálogo con los ids numéricos.
+            assertEquals("", it.getText(0))
+        }
+        db.prepare("SELECT count(*) FROM match_details").use {
+            assertTrue(it.step())
+            assertEquals(0L, it.getLong(0))
+        }
+        db.prepare("SELECT riot_match_id FROM matches").use {
+            assertTrue(it.step())
+            assertEquals("EUW1_1", it.getText(0))
+        }
+        db.close()
+    }
 }

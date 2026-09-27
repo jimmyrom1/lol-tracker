@@ -31,6 +31,8 @@ dependencies {
     implementation(projects.core.analytics)
     implementation(projects.feature.matches)
     implementation(projects.feature.stats)
+    implementation(projects.feature.draft)
+    implementation(projects.feature.profile)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -40,6 +42,8 @@ dependencies {
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.hilt.work)
+    implementation(libs.androidx.work.runtime)
 
     testImplementation(projects.core.testing)
     testImplementation(libs.turbine)

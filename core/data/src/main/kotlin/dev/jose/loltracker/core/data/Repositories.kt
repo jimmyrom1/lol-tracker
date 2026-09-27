@@ -16,6 +16,9 @@ interface ChampionRepository {
     /** Catálogo local (puede estar vacío la primera vez, hasta que termine [refresh]). */
     fun observeChampions(): Flow<List<Champion>>
 
+    /** Versión del parche del catálogo guardado: hace falta para las URLs de iconos de Data Dragon. */
+    fun observePatchVersion(): Flow<String?>
+
     /**
      * Descarga el catálogo si hay un parche nuevo. Devuelve fallo si no hay conexión,
      * pero la app sigue funcionando con la caché.

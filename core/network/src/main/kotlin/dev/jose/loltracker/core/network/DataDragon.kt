@@ -25,6 +25,7 @@ data class ChampionsResponse(val data: Map<String, ChampionDto>)
 @Serializable
 data class ChampionDto(
     val id: String,
+    val key: String = "",
     val name: String,
     val title: String,
     val tags: List<String> = emptyList(),
@@ -40,4 +41,5 @@ fun ChampionDto.toModel(baseUrl: String, version: String) = Champion(
     title = title,
     iconUrl = "${baseUrl.trimEnd('/')}/cdn/$version/img/champion/${image.full}",
     tags = tags,
+    key = key,
 )

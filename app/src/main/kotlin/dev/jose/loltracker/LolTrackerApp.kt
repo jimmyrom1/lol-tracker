@@ -4,8 +4,12 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material3.Icon
@@ -21,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -31,6 +36,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dev.jose.loltracker.feature.matches.navigation.MatchListDestination
 import dev.jose.loltracker.feature.matches.navigation.matchesGraph
+import dev.jose.loltracker.feature.draft.DraftDestination
+import dev.jose.loltracker.feature.draft.draftGraph
+import dev.jose.loltracker.feature.profile.ProfileDestination
+import dev.jose.loltracker.feature.profile.profileGraph
 import dev.jose.loltracker.feature.stats.StatsDestination
 import dev.jose.loltracker.feature.stats.statsGraph
 import kotlin.reflect.KClass
@@ -44,6 +53,8 @@ private enum class TopLevelDestination(
 ) {
     MATCHES(MatchListDestination, MatchListDestination::class, R.string.nav_matches, Icons.Filled.SportsEsports, Icons.Outlined.SportsEsports),
     STATS(StatsDestination, StatsDestination::class, R.string.nav_stats, Icons.Filled.QueryStats, Icons.Outlined.QueryStats),
+    DRAFT(DraftDestination, DraftDestination::class, R.string.nav_draft, Icons.Filled.Lightbulb, Icons.Outlined.Lightbulb),
+    PROFILE(ProfileDestination, ProfileDestination::class, R.string.nav_profile, Icons.Filled.AccountCircle, Icons.Outlined.AccountCircle),
 }
 
 @Composable
@@ -55,9 +66,16 @@ fun LolTrackerApp(viewModel: MainViewModel = hiltViewModel()) {
     // La barra inferior solo aparece en las pantallas principales, no en el formulario.
     val current = TopLevelDestination.entries.firstOrNull { top -> destination?.hierarchy?.any { it.hasRoute(top.routeClass) } == true }
 
-    val offlineMessage = stringResource(R.string.champions_offline)
+    val resources = LocalResources.current
     LaunchedEffect(viewModel) {
-        viewModel.offline.collect { snackbarHostState.showSnackbar(offlineMessage) }
+        viewModel.messages.collect { message ->
+            val text = when (message) {
+                StartupMessage.Offline -> resources.getString(R.string.champions_offline)
+                StartupMessage.KeyRejected -> resources.getString(R.string.sync_key_rejected)
+                is StartupMessage.NewMatches -> resources.getQuantityString(R.plurals.sync_new_matches, message.count, message.count)
+            }
+            snackbarHostState.showSnackbar(text)
+        }
     }
 
     Scaffold(
@@ -91,6 +109,8 @@ fun LolTrackerApp(viewModel: MainViewModel = hiltViewModel()) {
         ) {
             matchesGraph(navController)
             statsGraph()
+            draftGraph()
+            profileGraph()
         }
     }
 }

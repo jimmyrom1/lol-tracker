@@ -42,6 +42,24 @@
     <string name="edit_cancel">Cancelar</string>
     <string name="edit_not_found">La partida ya no existe</string>
 
+    <string name="detail_edit">Editar notas</string>
+    <string name="detail_no_riot_data">Esta partida se apuntó a mano: solo hay detalle completo en las importadas de Riot.</string>
+    <string name="detail_damage">Daño a campeones</string>
+    <string name="detail_gold">Oro</string>
+    <string name="detail_kill_participation">Participación en asesinatos</string>
+    <string name="detail_vision">Puntuación de visión</string>
+    <string name="detail_wards">%d guardianes colocados</string>
+    <string name="detail_build">Hechizos y objetos</string>
+    <string name="detail_timeline">Diferencia de oro del equipo</string>
+    <string name="detail_timeline_error">No se pudo descargar la línea temporal.</string>
+    <string name="detail_retry">Reintentar</string>
+    <string name="detail_gold_final">Final: %1$s</string>
+    <string name="detail_cs_at_10">Minuto 10: %1$s CS contra %2$s</string>
+    <string name="detail_gold_at_15">Minuto 15: %1$s de oro contra %2$s</string>
+    <string name="detail_my_team">Tu equipo</string>
+    <string name="detail_enemy_team">Rivales</string>
+    <string name="detail_objectives">Torres %1$d · Dragones %2$d · Barones %3$d</string>
+
     <string name="riot_action">Importar desde Riot</string>
     <string name="riot_title">Importar desde Riot</string>
     <string name="riot_body">Descarga tus últimas 20 partidas de la API oficial de Riot (servidor EUW). Las que ya estén importadas no se duplican.</string>

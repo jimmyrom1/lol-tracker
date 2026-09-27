@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_title">Perfil</string>
+    <string name="profile_refresh">Actualizar</string>
+    <string name="profile_retry">Reintentar</string>
+    <string name="profile_empty_title">Sin cuenta de Riot</string>
+    <string name="profile_empty_body">Importa tus partidas desde la pestaña Partidas (icono de la nube) para ver aquí tu rango y tu maestría.</string>
+    <string name="profile_error_title">No se pudo cargar el perfil</string>
+    <string name="profile_level">Nivel %d</string>
+    <string name="profile_solo">Clasificatoria Solo/Dúo</string>
+    <string name="profile_flex">Clasificatoria Flexible</string>
+    <string name="profile_record">%1$dV %2$dD · %3$s</string>
+    <string name="profile_masteries">Maestría</string>
+    <string name="profile_mastery_level">Nivel %d</string>
+    <string name="profile_mastery_points">%s puntos</string>
+    <string name="profile_sync_title">Sincronización con Riot</string>
+    <string name="profile_last_sync">Última: %s</string>
+    <string name="profile_never_synced">Todavía no se ha sincronizado.</string>
+    <string name="profile_sync_explanation">Las partidas nuevas se descargan solas cada 6 horas y al abrir la app. La app nunca pasa del límite de peticiones de tu key.</string>
+    <string name="profile_sync_now">Sincronizar</string>
+    <string name="profile_syncing">Descargando partidas…</string>
+    <plurals name="profile_import_history">
+        <item quantity="one">Importar la última</item>
+        <item quantity="other">Importar las últimas %d</item>
+    </plurals>
+    <plurals name="profile_synced">
+        <item quantity="one">%d partida nueva</item>
+        <item quantity="other">%d partidas nuevas</item>
+    </plurals>
+</resources>

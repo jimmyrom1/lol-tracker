@@ -70,7 +70,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MatchListRoute(
     onAddMatch: () -> Unit,
-    onOpenMatch: (Long) -> Unit,
+    onOpenMatch: (Match) -> Unit,
     viewModel: MatchListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -109,7 +109,7 @@ fun MatchListScreen(
     onFilterChange: (ResultFilter) -> Unit,
     onAddMatch: () -> Unit,
     onImportFromRiot: () -> Unit,
-    onOpenMatch: (Long) -> Unit,
+    onOpenMatch: (Match) -> Unit,
     onDelete: (Match) -> Unit,
     today: LocalDate = LocalDate.now(),
 ) {
@@ -170,7 +170,7 @@ fun MatchListScreen(
                             item(key = "header-${section.date}") { DayHeader(section.date, today) }
                             items(section.matches, key = { it.id }) { match ->
                                 SwipeToDelete(onDelete = { onDelete(match) }) {
-                                    MatchCard(match, state.championIcons[match.championId], onClick = { onOpenMatch(match.id) })
+                                    MatchCard(match, state.championIcons[match.championId], onClick = { onOpenMatch(match) })
                                 }
                             }
                         }

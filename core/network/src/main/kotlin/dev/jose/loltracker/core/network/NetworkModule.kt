@@ -35,10 +35,25 @@ object NetworkModule {
     fun dataDragonApi(client: OkHttpClient, @Named("dataDragonBaseUrl") baseUrl: String): DataDragonApi =
         createDataDragonApi(client, baseUrl)
 
+    /** Uno solo para toda la app: los límites de Riot son por key, no por pantalla. */
     @Provides
     @Singleton
-    fun riotApi(client: OkHttpClient, keys: RiotApiKeyProvider): RiotApi =
-        createRiotApi(client, RIOT_EUROPE_BASE_URL, keys)
+    fun riotRateLimiter(): RiotRateLimiter = RiotRateLimiter()
+
+    @Provides
+    @Singleton
+    @Named("riot")
+    fun riotOkHttp(client: OkHttpClient, keys: RiotApiKeyProvider, limiter: RiotRateLimiter): OkHttpClient =
+        riotClient(client, keys, limiter)
+
+    @Provides
+    @Singleton
+    fun riotApi(@Named("riot") client: OkHttpClient): RiotApi = createRiotService(client, RIOT_EUROPE_BASE_URL)
+
+    @Provides
+    @Singleton
+    fun riotPlatformApi(@Named("riot") client: OkHttpClient): RiotPlatformApi =
+        createRiotService(client, RIOT_EUW1_BASE_URL)
 }
 
 /** Fuera del módulo de Hilt para poder usarlo en los tests contra un MockWebServer. */

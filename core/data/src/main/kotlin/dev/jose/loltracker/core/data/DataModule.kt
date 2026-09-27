@@ -5,8 +5,12 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.jose.loltracker.core.data.riot.DefaultMatchDetailRepository
 import dev.jose.loltracker.core.data.riot.DefaultRiotImportRepository
+import dev.jose.loltracker.core.data.riot.DefaultRiotProfileRepository
+import dev.jose.loltracker.core.data.riot.MatchDetailRepository
 import dev.jose.loltracker.core.data.riot.RiotImportRepository
+import dev.jose.loltracker.core.data.riot.RiotProfileRepository
 import dev.jose.loltracker.core.data.riot.RiotSettings
 import dev.jose.loltracker.core.data.riot.SharedPreferencesRiotSettings
 import dev.jose.loltracker.core.network.RiotApiKeyProvider
@@ -27,6 +31,12 @@ internal abstract class DataModule {
 
     @Binds
     abstract fun riotImportRepository(impl: DefaultRiotImportRepository): RiotImportRepository
+
+    @Binds
+    abstract fun matchDetailRepository(impl: DefaultMatchDetailRepository): MatchDetailRepository
+
+    @Binds
+    abstract fun riotProfileRepository(impl: DefaultRiotProfileRepository): RiotProfileRepository
 
     @Binds
     abstract fun riotSettings(impl: SharedPreferencesRiotSettings): RiotSettings

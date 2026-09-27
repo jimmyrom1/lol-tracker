@@ -1,116 +1,112 @@
 package dev.jose.loltracker.core.data.riot
 
-import android.content.Context
-import android.content.SharedPreferences
-import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
-import dev.jose.loltracker.core.data.BuildConfig
 import dev.jose.loltracker.core.data.ChampionRepository
+import dev.jose.loltracker.core.database.CacheDao
+import dev.jose.loltracker.core.database.CacheEntity
 import dev.jose.loltracker.core.database.MatchDao
+import dev.jose.loltracker.core.database.MatchDetailDao
 import dev.jose.loltracker.core.database.toEntity
-import dev.jose.loltracker.core.network.MissingRiotApiKeyException
 import dev.jose.loltracker.core.network.RiotApi
-import java.io.IOException
+import java.time.Clock
+import java.time.Duration
 import javax.inject.Inject
-import javax.inject.Singleton
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
-import retrofit2.HttpException
-
-/** "jimmyrom#uarra" → gameName "jimmyrom", tagLine "uarra". */
-data class RiotId(val gameName: String, val tagLine: String) {
-    override fun toString() = "$gameName#$tagLine"
-
-    companion object {
-        fun parse(text: String): RiotId? {
-            val parts = text.trim().split('#')
-            if (parts.size != 2) return null
-            val (name, tag) = parts.map { it.trim() }
-            // Límites de Riot: nombre de 3 a 16 caracteres y etiqueta de 3 a 5.
-            if (name.length !in 3..16 || tag.length !in 3..5) return null
-            return RiotId(name, tag)
-        }
-    }
-}
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 sealed interface ImportResult {
     data class Success(val imported: Int, val alreadyImported: Int, val skipped: Int) : ImportResult
-    data class Failure(val error: ImportError) : ImportResult
-}
-
-enum class ImportError { MISSING_API_KEY, INVALID_API_KEY, ACCOUNT_NOT_FOUND, RATE_LIMITED, NETWORK }
-
-/** Riot ID y API key que el usuario escribe en la app. */
-interface RiotSettings {
-    var riotId: String?
-    var userApiKey: String?
-
-    /** La que se escribe en la app tiene prioridad sobre la de local.properties. */
-    fun apiKey(): String? = userApiKey?.takeIf { it.isNotBlank() } ?: BuildConfig.RIOT_API_KEY.takeIf { it.isNotBlank() }
-}
-
-@Singleton
-internal class SharedPreferencesRiotSettings @Inject constructor(
-    @ApplicationContext context: Context,
-) : RiotSettings {
-    // Almacenamiento privado de la app. Las keys de desarrollo caducan a las 24 h, así que no
-    // compensa cifrarlas; una app pública necesitaría un backend propio que guarde la key.
-    private val prefs: SharedPreferences = context.getSharedPreferences("riot", Context.MODE_PRIVATE)
-
-    override var riotId: String?
-        get() = prefs.getString("riot_id", null)
-        set(value) = prefs.edit { putString("riot_id", value) }
-
-    override var userApiKey: String?
-        get() = prefs.getString("api_key", null)
-        set(value) = prefs.edit { putString("api_key", value?.trim()) }
+    data class Failure(val error: RiotError) : ImportResult
 }
 
 interface RiotImportRepository {
+    /** Importa las últimas [count] partidas (hasta 100) de [riotId] y la recuerda para sincronizar. */
     suspend fun import(riotId: RiotId, count: Int = DEFAULT_COUNT): ImportResult
+
+    /** Sincroniza la cuenta guardada: es lo que hacen el arranque de la app y la tarea periódica. */
+    suspend fun syncSaved(): ImportResult
+
+    /** Como [syncSaved], pero no hace nada (null) si la última sincronización es de hace menos de [minInterval]. */
+    suspend fun syncSavedIfStale(minInterval: Duration = MIN_SYNC_INTERVAL): ImportResult?
 
     companion object {
         const val DEFAULT_COUNT = 20
+        const val MAX_COUNT = 100
+
+        /** Tope de detalles antiguos que se rellenan por sincronización, para no gastar la cuota. */
+        const val BACKFILL_PER_SYNC = 20
+
+        val MIN_SYNC_INTERVAL: Duration = Duration.ofMinutes(15)
     }
 }
 
 internal class DefaultRiotImportRepository @Inject constructor(
     private val api: RiotApi,
     private val dao: MatchDao,
+    private val detailDao: MatchDetailDao,
+    private val cache: CacheDao,
     private val champions: ChampionRepository,
     private val settings: RiotSettings,
+    private val clock: Clock,
 ) : RiotImportRepository {
 
-    override suspend fun import(riotId: RiotId, count: Int): ImportResult {
-        if (settings.apiKey() == null) return ImportResult.Failure(ImportError.MISSING_API_KEY)
-        return try {
-            val puuid = api.accountByRiotId(riotId.gameName, riotId.tagLine).puuid
-            val ids = api.matchIds(puuid, count = count)
+    // Si la tarea periódica y el usuario importan a la vez, la segunda espera: así no se piden
+    // dos veces las mismas partidas.
+    private val mutex = Mutex()
+
+    override suspend fun syncSaved(): ImportResult {
+        val riotId = settings.riotId?.let(RiotId::parse) ?: return ImportResult.Failure(RiotError.NOT_CONFIGURED)
+        return import(riotId, RiotImportRepository.DEFAULT_COUNT)
+    }
+
+    override suspend fun syncSavedIfStale(minInterval: Duration): ImportResult? {
+        val last = settings.lastSyncAt
+        if (last != null && Duration.between(last, clock.instant()) < minInterval) return null
+        return syncSaved()
+    }
+
+    override suspend fun import(riotId: RiotId, count: Int): ImportResult = mutex.withLock {
+        if (settings.apiKey() == null) return ImportResult.Failure(RiotError.MISSING_API_KEY)
+        val result = riotCall {
+            val puuid = puuidFor(riotId)
+            val ids = api.matchIds(puuid, count = count.coerceIn(1, RiotImportRepository.MAX_COUNT))
             // Solo se descargan las partidas nuevas: cada una es una petición contra el límite de la key.
             val known = dao.existingRiotMatchIds(ids).toSet()
             val catalog = champions.observeChampions().first().associateBy { it.id.lowercase() }
 
-            val newIds = ids.filterNot { it in known }
-            val matches = newIds.mapNotNull { id -> RiotMatchMapper.toMatch(api.match(id), puuid, catalog) }
-            val inserted = dao.insertAll(matches.map { it.toEntity() }).count { it != -1L }
+            // Los remakes no se guardan como partida; se recuerdan para no descargarlos cada vez.
+            val newIds = ids.filterNot { it in known || cache.get(skippedKey(it)) != null }
+            // Las importadas antes de guardar el detalle se completan poco a poco.
+            val backfill = detailDao.matchIdsWithoutDetail().take(RiotImportRepository.BACKFILL_PER_SYNC)
 
+            var imported = 0
+            var skipped = 0
+            for (id in (newIds + backfill).distinct()) {
+                val dto = api.match(id)
+                val match = RiotMatchMapper.toMatch(dto, puuid, catalog)
+                if (match == null) {
+                    skipped++
+                    cache.put(CacheEntity(skippedKey(id), "", clock.instant()))
+                    continue
+                }
+                detailDao.upsert(RiotMatchMapper.toDetail(dto, puuid, catalog).toEntity())
+                if (id in newIds) imported += dao.insertAll(listOf(match.toEntity())).count { it != -1L }
+            }
             settings.riotId = riotId.toString()
-            ImportResult.Success(imported = inserted, alreadyImported = known.size, skipped = newIds.size - matches.size)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: HttpException) {
-            ImportResult.Failure(
-                when (e.code()) {
-                    401, 403 -> ImportError.INVALID_API_KEY
-                    404 -> ImportError.ACCOUNT_NOT_FOUND
-                    429 -> ImportError.RATE_LIMITED
-                    else -> ImportError.NETWORK
-                },
-            )
-        } catch (e: MissingRiotApiKeyException) {
-            ImportResult.Failure(ImportError.MISSING_API_KEY)
-        } catch (e: IOException) {
-            ImportResult.Failure(ImportError.NETWORK)
+            settings.puuid = puuid
+            settings.lastSyncAt = clock.instant()
+            ImportResult.Success(imported = imported, alreadyImported = known.size, skipped = skipped)
         }
+        when (result) {
+            is RiotResult.Success -> result.value
+            is RiotResult.Failure -> ImportResult.Failure(result.error)
+        }
+    }
+
+    private fun skippedKey(matchId: String) = "skipped:$matchId"
+
+    private suspend fun puuidFor(riotId: RiotId): String {
+        val saved = settings.puuid?.takeIf { settings.riotId == riotId.toString() }
+        return saved ?: api.accountByRiotId(riotId.gameName, riotId.tagLine).puuid
     }
 }

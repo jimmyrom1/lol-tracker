@@ -41,4 +41,6 @@ data class Champion(
     val title: String,
     val iconUrl: String,
     val tags: List<String>,
+    /** Id numérico de Riot ("103" para Ahri): es el que usan la maestría y la partida en curso. */
+    val key: String = "",
 )

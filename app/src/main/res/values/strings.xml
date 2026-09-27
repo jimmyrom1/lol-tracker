@@ -3,5 +3,12 @@
     <string name="app_name">LoL Tracker</string>
     <string name="nav_matches">Partidas</string>
     <string name="nav_stats">Estadísticas</string>
+    <string name="nav_draft">Draft</string>
+    <string name="nav_profile">Perfil</string>
+    <plurals name="sync_new_matches">
+        <item quantity="one">%d partida nueva importada de Riot</item>
+        <item quantity="other">%d partidas nuevas importadas de Riot</item>
+    </plurals>
+    <string name="sync_key_rejected">Riot rechaza la API key: revísala en Perfil</string>
     <string name="champions_offline">Sin conexión: se usa el catálogo de campeones guardado</string>
 </resources>

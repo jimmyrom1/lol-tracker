@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="draft_title">Draft</string>
+    <string name="draft_clear">Limpiar</string>
+    <string name="draft_role">Tu rol</string>
+    <string name="draft_any_role">Cualquiera</string>
+    <string name="draft_enemies">Rivales ya elegidos</string>
+    <string name="draft_allies">Aliados ya elegidos</string>
+    <string name="draft_add">Añadir</string>
+    <string name="draft_remove">Quitar</string>
+    <string name="draft_suggestions">Qué te conviene elegir</string>
+    <string name="draft_no_history">Importa tus partidas de Riot para recibir sugerencias basadas en tu historial.</string>
+    <string name="draft_no_picks">No has jugado ningún campeón disponible en este rol. Prueba con otro rol o con "Cualquiera".</string>
+    <string name="draft_sample">Basado en %d partidas tuyas. La cifra es tu probabilidad de victoria estimada.</string>
+    <string name="draft_record">Tu balance: %1$dV %2$dD</string>
+    <string name="draft_vs">%1$dV %2$dD contra %3$s</string>
+    <string name="draft_with">%1$dV %2$dD con %3$s</string>
+    <string name="draft_insights">Tu historial con este draft</string>
+    <string name="draft_insight_vs">Contra %1$s: %2$dV %3$dD</string>
+    <string name="draft_insight_with">Con %1$s de aliado: %2$dV %3$dD</string>
+    <string name="draft_you_vs">Tú: %1$dV %2$dD</string>
+
+    <string name="draft_live_title">Partida en curso</string>
+    <string name="draft_live_hint">Cuando estés en la pantalla de carga, busca tu partida para ver el rango y la maestría de los 10 jugadores. El draft se rellena solo.</string>
+    <string name="draft_live_button">Buscar mi partida</string>
+    <string name="draft_live_searching">Buscando…</string>
+    <string name="draft_live_not_in_game">No estás en ninguna partida ahora mismo.</string>
+    <string name="draft_live_my_team">Tu equipo</string>
+    <string name="draft_live_enemy_team">Rivales</string>
+    <string name="draft_live_winrate">%1$s en %2$d partidas</string>
+    <string name="draft_live_mastery">Maestría %d</string>
+    <string name="draft_live_first_time">Sin maestría</string>
+</resources>

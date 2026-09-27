@@ -5,14 +5,23 @@ import dev.jose.loltracker.core.analytics.AnalyticsTracker
 import dev.jose.loltracker.core.data.ChampionRepository
 import dev.jose.loltracker.core.data.MatchRepository
 import dev.jose.loltracker.core.data.riot.ImportResult
+import dev.jose.loltracker.core.data.riot.MatchDetailRepository
+import dev.jose.loltracker.core.data.riot.RiotError
+import dev.jose.loltracker.core.data.riot.RiotProfileRepository
+import dev.jose.loltracker.core.data.riot.RiotResult
 import dev.jose.loltracker.core.data.riot.RiotId
 import dev.jose.loltracker.core.data.riot.RiotImportRepository
 import dev.jose.loltracker.core.data.riot.RiotSettings
 import dev.jose.loltracker.core.model.Champion
+import dev.jose.loltracker.core.model.LiveGame
 import dev.jose.loltracker.core.model.Match
+import dev.jose.loltracker.core.model.MatchDetail
+import dev.jose.loltracker.core.model.ParticipantStats
+import dev.jose.loltracker.core.model.PlayerProfile
 import dev.jose.loltracker.core.model.MatchResult
 import dev.jose.loltracker.core.model.Queue
 import dev.jose.loltracker.core.model.Role
+import dev.jose.loltracker.core.model.TeamObjectives
 import java.time.Duration
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +71,9 @@ class FakeChampionRepository(champions: List<Champion> = TestData.champions) : C
 
     override fun observeChampions(): Flow<List<Champion>> = champions
 
+    val patchVersion = MutableStateFlow<String?>("16.19.1")
+    override fun observePatchVersion(): Flow<String?> = patchVersion
+
     override suspend fun refresh(): Result<Unit> {
         refreshCalls++
         return refreshResult
@@ -73,6 +85,8 @@ class FakeRiotSettings(
     override var userApiKey: String? = null,
     /** Simula una key compilada desde local.properties. */
     var builtInKey: String? = null,
+    override var puuid: String? = null,
+    override var lastSyncAt: java.time.Instant? = null,
 ) : RiotSettings {
     override fun apiKey() = userApiKey?.takeIf { it.isNotBlank() } ?: builtInKey
 }
@@ -83,6 +97,39 @@ class FakeRiotImportRepository(var result: ImportResult = ImportResult.Success(0
         requests += riotId
         return result
     }
+
+    var syncs = 0
+    override suspend fun syncSaved(): ImportResult {
+        syncs++
+        return result
+    }
+
+    override suspend fun syncSavedIfStale(minInterval: java.time.Duration): ImportResult? = syncSaved()
+}
+
+class FakeMatchDetailRepository(initial: List<MatchDetail> = emptyList()) : MatchDetailRepository {
+    val details = MutableStateFlow(initial)
+    var timelineResult: RiotResult<Unit> = RiotResult.Success(Unit)
+    var timelineRequests = 0
+
+    override fun observe(riotMatchId: String): Flow<MatchDetail?> = details.map { list -> list.firstOrNull { it.riotMatchId == riotMatchId } }
+    override fun observeAll(): Flow<List<MatchDetail>> = details
+    override suspend fun loadTimeline(riotMatchId: String): RiotResult<Unit> {
+        timelineRequests++
+        return timelineResult
+    }
+}
+
+class FakeRiotProfileRepository(
+    var profileResult: RiotResult<PlayerProfile> = RiotResult.Failure(RiotError.NOT_CONFIGURED),
+    var liveGameResult: RiotResult<LiveGame?> = RiotResult.Success(null),
+) : RiotProfileRepository {
+    var forcedRefreshes = 0
+    override suspend fun profile(forceRefresh: Boolean): RiotResult<PlayerProfile> {
+        if (forceRefresh) forcedRefreshes++
+        return profileResult
+    }
+    override suspend fun liveGame(): RiotResult<LiveGame?> = liveGameResult
 }
 
 class TestAnalyticsTracker : AnalyticsTracker {
@@ -93,9 +140,35 @@ class TestAnalyticsTracker : AnalyticsTracker {
 }
 
 object TestData {
-    val ahri = Champion("Ahri", "Ahri", "la Vastaya de nueve colas", "", listOf("Mage"))
-    val jinx = Champion("Jinx", "Jinx", "la bala perdida", "", listOf("Marksman"))
-    val leeSin = Champion("LeeSin", "Lee Sin", "el monje ciego", "", listOf("Fighter"))
+    fun participant(puuid: String, team: Int, champion: String, role: Role? = null, win: Boolean = true) = ParticipantStats(
+        puuid = puuid, participantId = 0, teamId = team, riotId = "$puuid#EUW", championId = champion, role = role,
+        champLevel = 18, kills = 5, deaths = 3, assists = 7, creepScore = 180, gold = 11000, damageToChampions = 20000,
+        damageTaken = 15000, visionScore = 25, wardsPlaced = 10, items = listOf(6676, 0, 0, 0, 0, 0, 3364),
+        summonerSpells = listOf(4, 14), killParticipation = 0.5, win = win,
+    )
+
+    /** Partida importada vista por "me": mi campeón, mis aliados y mis rivales. */
+    fun detail(
+        riotMatchId: String,
+        me: String,
+        win: Boolean,
+        role: Role = Role.ADC,
+        allies: List<String> = emptyList(),
+        enemies: List<String> = emptyList(),
+    ) = MatchDetail(
+        riotMatchId = riotMatchId,
+        myPuuid = "me",
+        gameVersion = "16.19.1",
+        participants = listOf(participant("me", 100, me, role, win)) +
+            allies.mapIndexed { i, c -> participant("ally$i", 100, c, win = win) } +
+            enemies.mapIndexed { i, c -> participant("enemy$i", 200, c, win = !win) },
+        teams = listOf(TeamObjectives(100, win, 8, 3, 1, 1), TeamObjectives(200, !win, 3, 1, 0, 0)),
+        timeline = null,
+    )
+
+    val ahri = Champion("Ahri", "Ahri", "la Vastaya de nueve colas", "", listOf("Mage"), key = "103")
+    val jinx = Champion("Jinx", "Jinx", "la bala perdida", "", listOf("Marksman"), key = "222")
+    val leeSin = Champion("LeeSin", "Lee Sin", "el monje ciego", "", listOf("Fighter"), key = "64")
     val champions = listOf(ahri, jinx, leeSin)
 
     fun match(

@@ -14,4 +14,27 @@
     <string name="queue_normal">Normal</string>
     <string name="queue_aram">ARAM</string>
     <string name="queue_other">Otra</string>
+
+    <string name="tier_iron">Hierro</string>
+    <string name="tier_bronze">Bronce</string>
+    <string name="tier_silver">Plata</string>
+    <string name="tier_gold">Oro</string>
+    <string name="tier_platinum">Platino</string>
+    <string name="tier_emerald">Esmeralda</string>
+    <string name="tier_diamond">Diamante</string>
+    <string name="tier_master">Maestro</string>
+    <string name="tier_grandmaster">Gran Maestro</string>
+    <string name="tier_challenger">Aspirante</string>
+    <string name="tier_unranked">Sin clasificar</string>
+
+    <string name="riot_err_not_configured">Todavía no has importado tu cuenta: hazlo desde Partidas, con el icono de la nube.</string>
+    <string name="riot_err_missing_key">Falta la API key de Riot.</string>
+    <string name="riot_err_invalid_key">Riot rechaza la API key: puede que haya caducado.</string>
+    <string name="riot_err_not_found">Riot no encuentra esa cuenta o esa partida.</string>
+    <string name="riot_err_rate_limited">Demasiadas peticiones seguidas: espera un par de minutos.</string>
+    <string name="riot_err_network">No se pudo conectar con Riot. Revisa la conexión.</string>
+
+    <string name="picker_title">Elige un campeón</string>
+    <string name="picker_search">Buscar</string>
+    <string name="picker_cancel">Cancelar</string>
 </resources>

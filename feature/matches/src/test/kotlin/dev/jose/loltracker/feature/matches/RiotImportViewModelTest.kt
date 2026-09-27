@@ -1,6 +1,6 @@
 package dev.jose.loltracker.feature.matches
 
-import dev.jose.loltracker.core.data.riot.ImportError
+import dev.jose.loltracker.core.data.riot.RiotError
 import dev.jose.loltracker.core.data.riot.ImportResult
 import dev.jose.loltracker.core.data.riot.RiotId
 import dev.jose.loltracker.core.testing.FakeRiotImportRepository
@@ -75,12 +75,12 @@ class RiotImportViewModelTest {
 
     @Test
     fun failuresAreExposedAndTracked() {
-        repository.result = ImportResult.Failure(ImportError.INVALID_API_KEY)
+        repository.result = ImportResult.Failure(RiotError.INVALID_API_KEY)
         val vm = viewModel()
         vm.onRiotIdChange("jimmyrom#uarra")
         vm.import()
 
-        assertEquals(ImportResult.Failure(ImportError.INVALID_API_KEY), vm.uiState.value.result)
+        assertEquals(ImportResult.Failure(RiotError.INVALID_API_KEY), vm.uiState.value.result)
         assertEquals(mapOf("error" to "INVALID_API_KEY"), analytics.events.single().params)
     }
 }
