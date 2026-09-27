@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stats_title">Estadísticas</string>
+    <string name="stats_all_queues">Todas</string>
+    <string name="stats_games">Partidas</string>
+    <string name="stats_record">%1$dV %2$dD</string>
+    <string name="stats_win_rate">Victorias</string>
+    <string name="stats_kda">KDA medio</string>
+    <string name="stats_kda_supporting">(K + A) / M</string>
+    <string name="stats_cs">CS por minuto</string>
+    <string name="stats_streak_title">Racha actual</string>
+    <plurals name="stats_streak_wins">
+        <item quantity="one">%d victoria seguida</item>
+        <item quantity="other">%d victorias seguidas</item>
+    </plurals>
+    <plurals name="stats_streak_losses">
+        <item quantity="one">%d derrota seguida</item>
+        <item quantity="other">%d derrotas seguidas</item>
+    </plurals>
+    <string name="stats_recent_form">Últimas partidas</string>
+    <string name="stats_by_role">Por rol</string>
+    <string name="stats_by_champion">Por campeón</string>
+    <plurals name="stats_games_count">
+        <item quantity="one">%d partida</item>
+        <item quantity="other">%d partidas</item>
+    </plurals>
+    <string name="stats_champion_line">%1$s · KDA %2$s</string>
+    <string name="stats_empty_title">Sin estadísticas todavía</string>
+    <string name="stats_empty_body">Cuando apuntes partidas verás aquí tu porcentaje de victorias, KDA y campeones más jugados.</string>
+</resources>

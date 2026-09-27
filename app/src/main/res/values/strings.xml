@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LoL Tracker</string>
+    <string name="nav_matches">Partidas</string>
+    <string name="nav_stats">Estadísticas</string>
+    <string name="champions_offline">Sin conexión: se usa el catálogo de campeones guardado</string>
+</resources>

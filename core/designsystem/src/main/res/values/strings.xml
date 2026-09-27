@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="result_win">Victoria</string>
+    <string name="result_loss">Derrota</string>
+
+    <string name="role_top">Top</string>
+    <string name="role_jungle">Jungla</string>
+    <string name="role_mid">Mid</string>
+    <string name="role_adc">ADC</string>
+    <string name="role_support">Support</string>
+
+    <string name="queue_ranked_solo">Clasificatoria Solo/Dúo</string>
+    <string name="queue_ranked_flex">Clasificatoria Flexible</string>
+    <string name="queue_normal">Normal</string>
+    <string name="queue_aram">ARAM</string>
+    <string name="queue_other">Otra</string>
+</resources>
